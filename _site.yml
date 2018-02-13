@@ -3,11 +3,9 @@ output_dir: "."
 navbar:
   title: "David Sawyer"
   
-  left:
-    
-    - text: "Projects"
-  
   right: 
+  
+    - text: "Projects"
   
     - text: "Jobs"
     
