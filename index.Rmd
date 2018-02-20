@@ -1,3 +1,20 @@
+
+```{r, echo = FALSE}
+library(knitr)
+library(png)
+```
+
+
 ```{r}
 print("I printed this string")
+```
+
+
+
+I printed a picture of a string.
+
+
+```{r}
+library(knitr)
+include_graphics("Yarn.jpg")
 ```
