@@ -1,16 +1,16 @@
-name: "David Sawyer"
-output_dir: "."
+name: David Sawyer
+output_dir: '.'
 navbar:
-  title: "David Sawyer"
-  
-  right: 
-  
-    - text: "Projects"
-  
-    - text: "Jobs"
-    
+  title: David Sawyer
+  right:
+  - text: Projects
+    href: Projects.html
+  - text: Jobs
+    href: Jobs.html
 output:
   html_document:
     theme: cosmo
     highlight: textmate
-  
+    lib_dir: site_libs
+    self_contained: no
+

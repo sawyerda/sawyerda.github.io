@@ -1,10 +1,4 @@
 
-```{r, echo = FALSE}
-library(knitr)
-library(png)
-```
-
-
 ```{r}
 print("I printed this string")
 ```
