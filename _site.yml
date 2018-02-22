@@ -3,10 +3,14 @@ output_dir: '.'
 navbar:
   title: David Sawyer
   right:
-  - text: Projects
-    href: Projects.html
-  - text: Jobs
-    href: Jobs.html
+  - text: "Home"
+    href: "index.html"
+  - text: "About"
+    href: "About.html"
+  - text: "Projects"
+    href: "Projects.html"
+  - text:  "Jobs"
+    href: "Jobs.html"
 output:
   html_document:
     theme: cosmo
