@@ -9,12 +9,11 @@ navbar:
     href: "About.html"
   - text: "Projects"
     href: "Projects.html"
-  - text:  "Jobs"
-    href: "Jobs.html"
 output:
   html_document:
     theme: cosmo
     highlight: textmate
     lib_dir: site_libs
     self_contained: no
+    css: style.css
 

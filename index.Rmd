@@ -4,7 +4,6 @@ print("I printed this string")
 ```
 
 
-
 I printed a picture of a string.
 
 
