@@ -1,6 +1,10 @@
 ---
 title: "Multi-Linear Analyses of Pricing from [King's County Housing Data](http://your.kingcounty.gov/assessor/eRealProperty/ResGlossaryOfTerms.html)"
+author: "David Sawyer"
+date: '`r format(Sys.time(), "%B %d, %Y")`'
 bibliography: [./BIB/PackagesUsed.bib]
+output: 
+  bookdown::html_document2
 ---
 
 ```{r setup, include=FALSE}
