@@ -9,14 +9,13 @@ navbar:
     href: About.html
   - text: Projects
     href: Projects.html
-    menu: 
-      
-      - text: "Regressing on Housing Prices"
-        href: HousingPrices.html
-      - text: "Machine Learning Competition"
-        href: MachineLearning.html
-      - text: "Genomesequencing Grades"
-        href: Genomes.html
+    menu:
+    - text: Regressing on Housing Prices
+      href: HousingPrices.html
+    - text: Machine Learning Competition
+      href: MachineLearning.html
+    - text: Genomesequencing Grades
+      href: Genomes.html
 output:
   html_document:
     theme: cosmo

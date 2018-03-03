@@ -1,105 +1,196 @@
 ---
-title: "Project1"
+title: "Multi-Linear Analyses of Pricing from [King's County Housing Data](http://your.kingcounty.gov/assessor/eRealProperty/ResGlossaryOfTerms.html)"
 author: "David Sawyer"
-date: "3/13/2017"
-output: html_document
+date: '`r format(Sys.time(), "%B %d, %Y")`'
+bibliography: [./BIB/PackagesUsed.bib]
+output: 
+  bookdown::html_document2: 
+    highlight: textmate
+    theme: yeti
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-```{r}
-library(DT)
+knitr::opts_chunk$set(comment = NA, fig.align = 'center', fig.height = 5, fig.width = 5, prompt = FALSE, highlight = TRUE, tidy = FALSE, warning = FALSE, message = FALSE, tidy.opts=list(blank = TRUE, width.cutoff = 80))
+library(knitr)
 library(ggplot2)
-library(MASS)
 library(car)
+library(DT)
 ```
 
-
-```{r, dataSet}
-HP <- read.delim('http://ww2.amstat.org/publications/jse/datasets/homes76.dat.txt', header = TRUE)
-HP <- data.frame(HP[2], HP[3], HP[4], HP[5], HP[6], HP[8], HP[9], HP[11], HP[12], HP[13], HP[14])
-names(HP) <- c('price', 'size', 'lot', 'bath', 'bed', 'year', 'age', 'garage', 'status', 'active', 'elem')
-datatable(HP)
+```{r, intro,include=FALSE}
+introhousedata <- read.csv("./Data/housedata.csv")
+dimension <- dim(introhousedata)
 ```
 
-##Exploration of data{-}
-On its own `age` ( `price` ~ `age`) seems to be not important given its low t-value and high p-value, but from the article we no this is not the case. This must mean that `age`$^2$ might change that or it is important in context with other variables. Also, an open status in a simple model (`price` ~ `status`) is not significant factor, but is also something that becomes significant in the greater model when added to a model with several barriers. This follows with active which is just a dummy variable for when `status` equals open so it makes sense. When adding everything to one model and add `age`$^2$ things change. `age`$^2$ is significant.
+#Introduction
 
-##What are the units for `price` and `size`?
+Housing prices is a complicated topic that influences some of the most important investments a person or persons make. There are many variables that effect how a house is priced and if the house is priced at the wrong point it can mean a house not being sold or a purchase that could make for a bad investment. This makes pricing a pivotal topic worthy of developing solutions. The point of developing this model is to help those involved in the housing market to find insights on other ways to properly assess the value of a home. 
 
-```{r, step}
-mod.hi <- lm(price ~ ., data = HP)
-mod.low <- lm(price ~ 1, data = HP )
-mod.fs <- stepAIC(mod.low, scope = list(lower = mod.low, upper = mod.hi), direction = "forward")
-mod.be <- stepAIC(mod.hi, scope = list(lower = mod.low,upper = mod.hi), direction = "backward")
-```
-The units of `price` on `size` is in units of 1000 square feet, so 2400 square feet is represented as 2.4. 
-
-The backwards method has a better model because it has a lower AIC. The backwards AIC = 587.16 and the forward AIC = 587.33.
-
-##Create mod1 and what would be you change?
-
-```{r, mod1, fig.width=12, fig.height=12}
-mod1 <- lm(price ~ . - status - year, data = HP)
-
-summary(mod1)
-res <- car::residualPlots(mod1)
-res
-```
-Given the residual plots, size and lot  looks linear while it seems that bath, lot, bed, and age seem to have a non-linear form. I would probably attempt to create a sqared term for those terms to see if it boosts the adjusted $R^2$ term, which is `r `r summary(mod1)$adj.r.squared`. I would also try interaction terms with the terms that seem non-linear to see which ones are a better fit to the data.
+The model I have developed to help bring insight to housing values uses Data from the [King's County website](http://your.kingcounty.gov/assessor/eRealProperty/ResGlossaryOfTerms.html) . The data originally contains `r dimension[1]` observations and `r dimension[2]` variables. In this paper, the modifications of this data and the details of the model will be covered in the  following sections.
 
 
-##Create mod2
-```{r, mod2}
-mod2 <- lm(price ~ . - status - year + bath:bed + I(age ^ 2), HP)
-summary(mod2)
-summary(mod2)$adj.r.squared
+```{r, intropic, echo = FALSE}
+knitr::include_graphics(rep("./JPG/website.png"))
 ```
 
-$$R^2 = `r summary(mod2)$adj.r.squared`$$
+#Methods
 
-##Create mod3
+## Data Collection
 
-```{r, mod3}
-mod3 <- update(mod2, . ~ . -elem + I(elem == "harris") + I(elem == "edison"))
-#mod3 <- lm(price )
-mod3
-summary(mod3)
-anova(mod3, mod2)
+This data was pulled from the [King's County website](http://your.kingcounty.gov/assessor/eRealProperty/ResGlossaryOfTerms.html) on March 11, 2017 using R. The collection methods used for the data was not mentioned anywhere in the documentation, but it was gathered in 2015. After downloading the data, it was then modified by dropping all variables except the following: `sqft_living15, sqft_lot15`, `yr_renovated`, `zipcode`,`lat`, `long`, `sqft_above`, `sqft_basement`, `yr_built`, `waterfront`, `view`, `condition`, `grade`,  `sqft_living`, `sqft_lot`, `floors`, `price`, `bedrooms`, and `bathrooms`. This was done at the instructions of my Professor. When checking further sqft_basement was being shown as NA in the summary and after further inquiry with my Professor was dropped at his suggestion. 
+
+```{r, dataTable, echo = FALSE}
+housedata <- read.csv("./Data/housedata.csv", 
+                      colClasses = c(id = "character", date = "character", 
+                                     yr_built = "character", zipcode = "factor", grade = "factor"))
+housedata$date <- as.Date(housedata$date, "%Y%m%d")
+housedata$waterfront <- factor(housedata$waterfront, labels = c("No", "Yes"))
+housedata$condition <- factor(housedata$condition, labels = c("poor", "fair", "average", "good", "very good"))
+housedata$yr_renovated <- ifelse(housedata$yr_renovated == 0, housedata$yr_built, housedata$yr_renovated)
+housedata$yr_built <- as.Date(ISOdate(housedata$yr_built, 9, 1))  # Complete Year, Sept 1
+housedata$yr_renovated <- as.Date(ISOdate(housedata$yr_renovated, 9, 1))  # Last renovated Year, Sept 1
+housedata <- housedata[, -1]
+#### Perform same steps with test set
+housedataT <- read.csv("./Data/housedataTEST.csv", 
+                      colClasses = c(id = "character", date = "character", 
+                                     yr_built = "character", zipcode = "factor", grade = "factor"))
+housedataT$date <- as.Date(housedataT$date, "%Y%m%d")
+housedataT$waterfront <- factor(housedataT$waterfront, labels = c("No", "Yes"))
+housedataT$condition <- factor(housedataT$condition, labels = c("poor", "fair", "average", "good", "very good"))
+housedataT$yr_renovated <- ifelse(housedataT$yr_renovated == 0, housedataT$yr_built, housedataT$yr_renovated)
+housedataT$yr_built <- as.Date(ISOdate(housedataT$yr_built, 9, 1))  # Complete Year, Sept 1
+housedataT$yr_renovated <- as.Date(ISOdate(housedataT$yr_renovated, 9, 1))  # Last renovated Year, Sept 1
+housedataT <- housedataT[, -1]
+houseTable <- colnames(housedata)
+housedata <- subset(housedata, select = -c(sqft_basement))
+datatable(housedata[1:100,])
+
+
 ```
 
-Yes, the p-value is `r anova(mod3, mod2)$"Pr(>F)" `
-$$R^2 = `r summary(mod3)$adj.r.squared`$$
-P - value of this F-test is saying that there is a `r anova(mod3, mod2)$"Pr(>F)" ` chance that the models fit the data equally. So we can drop the three indicators because we fail to reject the null hypothesis that they are equal to 0. 
+## Exploritory Analysis
 
+The data was anylized using methods defined in the ISLR textbook (@R-ISLR).These methods included summarization, annova testing, residual plot analysis, and intuitive approaches to interaction term development.
 
+## Statistical Modeling
 
-##MSE Training
+The model is based on multi-linear modeling. The methods used for this modeling were pulled from the ISLR(@R-ISLR) text book ad a paper by [Iain Pardoe](https://ww2.amstat.org/publications/jse/v16n2/datasets.pardoe.html). 
 
-```{r, mseTEST}
-mean(resid(mod.fs)^2)
-mean(resid(mod.be)^2)
-mean(resid(mod2)^2)
-mean(resid(mod3)^2)
+##Reproducibility
+
+The data in this paper is accessible from the links provided above. The methods used for getting to the model can also be found in the given links as long as those links are valid. The actual model can be re-run by downloading the file from this [link](https://raw.githubusercontent.com/STAT-ATA-ASU/Sawyer-David/master/Assignments2017/KingCounty/RmdFiles/TheScript.rmd?token=AYBNW4wu3x6wZn6qYoqsV6sh2wgpVUutks5ZCZaCwA%3D%3D). It is compatible with the current R-Studio package and current version of `R` (3.3.3). The libraries used within this project (both the paper and the model development) were `car` [@R-car], `ggplot2` [@R-ggplot2], `knitr` [@R-knitr], `DT`[@R-DT], `rmarkdown` [@R-rmarkdown], and `bookdown` [@R-bookdown]. These libraries will need to be installed to run the .Rmd file.
+
+#Results
+
+The final model developed for predicting the prices was built off of several different predictors. The predictors included can be broke into two categories, home attributes and location. The predictors related to the home's attributes are the sqare footage of the lot (`sqft_living`), the sqare footage of the home (`sqft_living`), the average of the square footage of the surrounding 15 lots (`sqft_lot15`), the average of the square footage of the home for the surrounding 15 homes (`sqft_living15`), the grade of the construction of the homes (`grade`), the condition of the home (`condition`), the year the home was built (`yr_built`) and the year the home was renovated (`yr_renovated`). The location data is the zip codes of the home (`zipcode`), the latitude (`lat`), and the longitude (`long`). 
+The final model has taken on the form:
+
+\begin{align}
+\text{Price} &=\beta_{0} + \beta_{1}(\text{sqft_living}^{2})+ \beta_{3}(\text{sqft_living:sqft_lot:zipcode}) \\ 
+&+  \beta_{4}(\text{sqft_living15:sqft_lot15}) + \beta_{5}(\text{ sqft_living:floors:sqft_living15:zipcode}) \\ 
+&+ \beta_{6}(\text{sqft_lot:sqft_lot15:zipcode}) + \beta_{7}(\text{condition:grade}) \\ 
+&+ \beta_{8}(\text{view:waterfront:zipcode}) + \beta_{9}(\text{floors:sqft_living:zipcode}) \\ 
+&+ \beta_{10}(\text{yr_built:yr_renovated:zipcode}) +\beta_{11}(\text{lat:long:zipcode}) + \beta_{12}(\text{zipcode98199}) \\ &+ \beta_{13}(\text{zipcode98198}) + \beta_{14}(\text{zipcode98177}) + \beta_{15}(\text{zipcode98144}) \\ 
+&+ \beta_{16}(\text{zipcode98136}) + \beta_{17}(\text{zipcode98126}) + \beta_{18}(\text{zipcode98125}) \\ 
+&+ \beta_{19}(\text{zipcode98122}) + \beta_{20}(\text{zipcode98119}) + \beta_{21}(\text{zipcode98118}) \\ 
+&+ \beta_{22}(\text{zipcode98117}) + \beta_{23}(\text{zipcode98116}) +  \beta_{24}(\text{zipcode98115}) \\ 
+&+ \beta_{25}(\text{zipcode98112}) + \beta_{26}(\text{zipcode98109}) + \beta_{27}(\text{zipcode98108}) \\ 
+&+ \beta_{28}(\text{zipcode98107}) + \beta_{29}(\text{zipcode98106}) + \beta_{30}(\text{zipcode98105}) \\ 
+&+ \beta_{31}(\text{zipcode98103}) + \beta_{32}(\text{zipcode98102}) +  \beta_{33}(\text{zipcode98004}) \\  
+&+ \beta_{31}(\text{zipcode98005}) + \beta_{34}(\text{zipcode98006}) + \beta_{35}(\text{zipcode98007}) \\
+&+ \beta_{36}(\text{zipcode98008}) + \beta_{37}(\text{zipcode98010}) + \beta_{38}(\text{zipcode98014}) \\ 
+&+ \beta_{39}(\text{zipcode 98019}) + \beta_{40}(\text{zipcode98022}) + \beta_{41}(\text{zipcode98023}) \\
+&+ \beta_{42}(\text{zipcode98024}) + \beta_{43}(\text{zipcode98027}) + \beta_{44}(\text{zipcode 98029}) \\ 
+&+ \beta_{45}(\text{zipcode98033})+ \beta_{46}(\text{zipcode 98034}) + \beta_{47}(\text{zipcode98038}) \\
+&+ \beta_{48}(\text{zipcode98039}) + \beta_{49}(\text{zipcode98040}) + \beta_{50}(\text{zipcode98045}) \\ 
+&+ \beta_{51}(\text{zipcode98052}) + \beta_{52}(\text{zipcode 98053}) +  \beta_{53}(\text{zipcode98056}) \\
+&+ \beta_{54}(\text{zipcode98058}) + \beta_{55}(\text{zipcode98059}) + \beta_{56}(\text{zipcode98065}) \\ 
+&+ \beta_{57}(\text{zipcode98070}) + \beta_{58}(\text{zipcode98072}) +  \beta_{59}(\text{zipcode98074}) \\
+&+ \beta_{60}(\text{zipcode98075}) + \beta_{61}(\text{gradegrade11}) + \beta_{62}(\text{gradegrade12}) \\
+&+ \beta_{63}(\text{gradegrade13}) + \beta_{64}(\text{date}) + \beta_{65}(\text{bedrooms}) + \beta_{66}(\text{bathrooms}) \\ &+ \beta_{67}(\text{sqft_living}) + \beta_{68}(\text{sqft_lot}) + \beta_{69}(\text{floors}) \\ 
+&+ \beta_{70}(\text{waterfrontYes}) + \beta_{71}(\text{view}) + \beta_{72}(\text{conditionfair}) \\ 
+&+ \beta_{73}(\text{conditiongood}) + \beta_{74}(\text{conditionverygood}) + \beta_{75}(\text{conditionaverage}) \\ 
+&+ \beta_{76}(\text{yr_built}) + \beta_{77}(\text{yr_renovated} + \beta_{78}(\text{sqft_above}) + \varepsilon 
+\nonumber 
+(#eq:fromula)
+\end{align}
+
+The first addition to the model was to `sqft_living`. When viewing the residual plot the line fitted seemed to take on a quadratic relationship. This was convincing enough to add `poly(sqft_living, 2)`. The residual plot was as follows:
+
+```{r, modAllSummary,fig.cap ="Residual Plot of the residuals on the `sqft_living`", fig.align= "center",  echo = FALSE}
+library(car)
+modAll <- lm(price ~ ., data = housedata)
+residualPlot(lm(price~ sqft_living, data = housedata))
 ```
-mod2 has the lowest MSE with `r mean(resid(mod2)^2)`. I can't be sure, but I do know that given what we have found with the F-Test for mod3 it might be score higher than mod3. But, we have very little data and so the F-Test may be faulty. I would stick with mod3 and see how things turned out and adjust if it turns out that it is incorrect. 
+
+The term `sqft_living:sqft_lot:zipcode` covers how the ratio between a homes size and its lot affects the price from zip code to zip code. The interaction term that represents the interaction between the square footage of the 15 surrounding homes and the sqare footage of the 15 surrounding lots is `sqft_living15:sqft_lot15`. In addition to accounting for that ratio the term, `sqft_living:floors:sqft_living15:zipcode`, adds information on how a homes square footage and its distribution (amount of floors) interact with the average square footage of the surrounding 15 homes from zip code to zip code. A similar interaction term is `sqft_lot:sqft_lot15:zipcode`, which covers how a lot's size compared to its neighbors in different zip codes affects price. The `grade` of construction may only matter depending on the condition and so the term `condition:grade` adds this to the model. The term `view:waterfront:zipcode` represents the interaction between whether a term has a view and is on a waterfront from zip code to zip code. An obvious term included in this is the affect floors and square footage of a home have depending on its zip code on pricing, `loors:sqft_living:zipcode` represents this idea. The term `yr_built:yr_renovated:zipcode` describes the interaction between the year a home was built or renovated in a given zip code. The final interaction term in the model is `lat:long:zipcode`. This term represents the geological location of a home and its interaction with a given zip code. The next set of dummy varialbles that follow the form `zipcode9XXXX` are dummy variables that measure the difference between being in the particular zip code and not being in that zip code. This is similar to the `gradeXX`, `conditionXXX`,  `view`, and `waterfrontYes`. These variables cover the difference between being in the given category and not being in that category. The final result is a model that produces the following residual plot:
 
 
-##Mod3 Prediction Interval
+```{r,summary4,fig.cap ="Residual Plot of the final model", fig.align= "center",  echo = FALSE}
+mod.MinusZip <- update(modAll, . ~ . - zipcode  + I(zipcode == 98004)  + I(zipcode == 98005)+ I(zipcode == 98006)+ I(zipcode == 98007)+ I(zipcode == 98008)+ I(zipcode == 98010)+ I(zipcode == 98014) + I(zipcode == 98019) + I(zipcode == 98022)+ I(zipcode == 98023)+ I(zipcode == 98024)+ I(zipcode == 98027) + I(zipcode == 98029)   + I(zipcode == 98033)+ I(zipcode == 98034)+ I(zipcode == 98038)+ I(zipcode == 98039)+ I(zipcode == 98040)+ I(zipcode == 98045)+ I(zipcode == 98052)+ I(zipcode == 98053)+ I(zipcode == 98056)+ I(zipcode == 98058) + I(zipcode == 98059)+ I(zipcode == 98065)+ I(zipcode == 98070)+ I(zipcode == 98072)+ I(zipcode == 98074)+ I(zipcode == 98075) + I(zipcode == 98102)+ I(zipcode == 98103)+ I(zipcode == 98105)+ I(zipcode == 98106) + I(zipcode == 98107)+ I(zipcode == 98108) + I(zipcode == 98109) + I(zipcode == 98112) + I(zipcode == 98115)+ I(zipcode == 98116)+ I(zipcode == 98117)+ I(zipcode == 98118)+ I(zipcode == 98119)+ I(zipcode == 98122)         + I(zipcode == 98125) + I(zipcode == 98126) + I(zipcode == 98136)   + I(zipcode == 98144)       + I(zipcode == 98177) + I(zipcode == 98198) + I(zipcode == 98199))
 
-```{r, prediction}
-predict(mod3, newdata = data.frame(size = 1.879, lot = 4, bath = 2.1, bed = 3, garage = 2, active = 1 , age = .5, elem = 'parker'), level = .95, interval = 'predict')
+mod.DroppingGrades <- update(mod.MinusZip, . ~ . - grade + I(grade == "grade11") + I(grade == "grade12") + I(grade == "grade13"))
+
+library(ggplot2)
+mod.Try4 <- update(mod.DroppingGrades, . ~ . + sqft_living:sqft_lot:zipcode + sqft_living15:sqft_lot15 +  sqft_living:floors:sqft_living15:zipcode + sqft_lot:sqft_lot15:zipcode + condition:grade + view:waterfront:zipcode + floors:sqft_living:zipcode + yr_built:yr_renovated:zipcode + poly(sqft_living, 2) + lat:long:zipcode) #19k
+
+GG <- fortify(mod.Try4)
+
+ggplot(data = GG, aes(x = .fitted, y = .resid)) + 
+  geom_point() + 
+  labs(x = "Fitted Model", y = "Residuals") + 
+  geom_smooth() + 
+  theme_bw()
 ```
 
-##Extra Credit
-```{r, ec}
-library(effects)
-plot(allEffects(mod2))
-plot(effect("bath*bed", mod2))
-plot(effect("bath*bed", mod2, xlevels=list(bed=2:5)))
-plot(effect("bath*bed", mod2, xlevels=list(bath=1:3)))
+The line seems to fit to the model quite well. A summary of the items seems to be the next logical step.
+
+
+```{r, label = "ANOVA", echo = FALSE}
+kable(
+  anova(mod.Try4), digits = 4,
+  caption ="ANOVA table for the full model fit using ordinary least squares"
+)
+
 ```
 
-The first set of graphs is displaying the scatter plots of the indicators. THe second set of graphs is showing the slope of mod2 when bed equals 2 thorugh 5. The third modle is showing the slope for the bath*bed term as bed is set equal to the values 1 through 3.    
+As you can see, there is significance in all of the variables in the model, minus some zip codes. This points to a significant relationship between Price and the variables in the model (minus 2 zip codes).
+
+#Conclusion
+
+```{r, predictions,  echo = FALSE}
+s <- summary(mod.Try4)
+p1 <- predict.lm(mod.Try4, newData = data.frame( bedrooms = 4,  bathrooms = 1.75,   sqft_living = 1410, sqft_lot = 4080,    floors = 2.0,       waterfront = No,   view = 0, condition = good,     grade = 7,     sqft_above =   1000, yr_built = 1950-09-01, yr_renovated  =  NA, zipcode = 98117, lat = 47.6808, long = -122.384, sqft_living15 =  1410, sqft_lot15  =     4080), interval = "confidence")
+p1 <- p1[46, 1:3]
+p2 <- predict.lm(mod.Try4, newData = data.frame( bedrooms = 3,  bathrooms = 1.00,   sqft_living = 1180, sqft_lot = 5650,    floors = 1.0,       waterfront = No,   view = 0, condition = average,     grade = 7,     sqft_above =   1180, yr_built = 1955-09-01, yr_renovated  =  NA, zipcode = 98178, lat = 47.5112, long = -122.257 , sqft_living15 =  1340  , sqft_lot15  =      5650), interval = "confidence")
+p2 <- p2[1, 1:3]
+p3 <- predict.lm(mod.Try4, newData = data.frame( bedrooms = 2,  bathrooms = 1.50,   sqft_living = 1190, sqft_lot = 1265,    floors = 3.0,       waterfront = No,   view = 0, condition = average,     grade = 7,     sqft_above =   1190, yr_built = 2005-09-01, yr_renovated  =  NA, zipcode = 98133, lat = 47.7274, long = -122.357 , sqft_living15 =   1390    , sqft_lot15  =     1756), interval = "confidence")
+p3 <- p3[28, 1:3]
+p4 <- predict.lm(mod.Try4, newData = data.frame( bedrooms = 4,  bathrooms = 1.75,   sqft_living = 2330, sqft_lot = 5000,    floors = 1.5,       waterfront = No,   view = 0, condition = good,     grade = 7,     sqft_above =   1510, yr_built = 1929-09-01, yr_renovated  =  NA, zipcode = 98117, lat = 47.6823, long =  -122.368 , sqft_living15 =   1460   , sqft_lot15  =      5000), interval = "confidence")
+p4 <- p4[29, 1:3]
+obs <- c(1,  2, 3, 4)
+TPDATA <- rbind(p1, p2, p3, p4)
+names(TPDATA) <- c( "Fit", "Lower", "Upper")
+
+```
+
+The point of this model is to accurately predict a houses price given certain attributes.  In the spirit of the point of this paper, it is a good idea to try and predict a few home prices given certain attributes. The predictions are done on 4 observations that have been pulled from the King's County housing data. The prediction is done on a 95% confidence interval. The table (\@ref(tab:tb)) shown below has 3 columns. The first column, "Fit", contains the predicted price for the home. The second and third columns, "lower" and "Upper", contain the lower and upper bounds of the confidence interval, respectively. The model being used has an adjusted R$^2$ of `r summary(mod.Try4)$"adj.r.squared"`, which points to possibly having a good explanation of the given data. The mean squared prediction error equaled 119751.1 when testing the residuals against new data.
+
+```{r, predictTable, label = "tb", echo = FALSE}
+kable(
+  TPDATA,
+  digits = 2,
+  row.names = FALSE,
+  caption = "This table contains 4 observations from the King's County housing data. The prediction is in the Fit conlumn and the upper and lower bounds of the interval are in Lower and Upper, respectively."
+)
+```
+
+```{r, echo = FALSE, message = FALSE, results = 'hide', warning = FALSE}
+PackagesUsed <- c("rmarkdown", "knitr", "base", "xtable", "ggplot2", "car", "bookdown","ISLR", "DT" )
+# Write bib information
+# knitr::write_bib(PackagesUsed, file = "./BIB/PackagesUsed.bib")
+# Load packages
+lapply(PackagesUsed, library, character.only = TRUE)
+```
+
+## References
