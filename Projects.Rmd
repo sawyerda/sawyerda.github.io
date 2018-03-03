@@ -1,4 +1,13 @@
 
-```{r, include=FALSE}
-library(reticulate)
-```
+```{r}
+library(nycflights13)
+library(dplyr)
+library(ggplot2)
+
+flights %>% 
+ggplot(aes(x = month, y = flight)) +
+  geom_point()
+``` 
+
+
+

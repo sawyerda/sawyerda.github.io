@@ -1,0 +1,105 @@
+---
+title: "Project1"
+author: "David Sawyer"
+date: "3/13/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(DT)
+library(ggplot2)
+library(MASS)
+library(car)
+```
+
+
+```{r, dataSet}
+HP <- read.delim('http://ww2.amstat.org/publications/jse/datasets/homes76.dat.txt', header = TRUE)
+HP <- data.frame(HP[2], HP[3], HP[4], HP[5], HP[6], HP[8], HP[9], HP[11], HP[12], HP[13], HP[14])
+names(HP) <- c('price', 'size', 'lot', 'bath', 'bed', 'year', 'age', 'garage', 'status', 'active', 'elem')
+datatable(HP)
+```
+
+##Exploration of data{-}
+On its own `age` ( `price` ~ `age`) seems to be not important given its low t-value and high p-value, but from the article we no this is not the case. This must mean that `age`$^2$ might change that or it is important in context with other variables. Also, an open status in a simple model (`price` ~ `status`) is not significant factor, but is also something that becomes significant in the greater model when added to a model with several barriers. This follows with active which is just a dummy variable for when `status` equals open so it makes sense. When adding everything to one model and add `age`$^2$ things change. `age`$^2$ is significant.
+
+##What are the units for `price` and `size`?
+
+```{r, step}
+mod.hi <- lm(price ~ ., data = HP)
+mod.low <- lm(price ~ 1, data = HP )
+mod.fs <- stepAIC(mod.low, scope = list(lower = mod.low, upper = mod.hi), direction = "forward")
+mod.be <- stepAIC(mod.hi, scope = list(lower = mod.low,upper = mod.hi), direction = "backward")
+```
+The units of `price` on `size` is in units of 1000 square feet, so 2400 square feet is represented as 2.4. 
+
+The backwards method has a better model because it has a lower AIC. The backwards AIC = 587.16 and the forward AIC = 587.33.
+
+##Create mod1 and what would be you change?
+
+```{r, mod1, fig.width=12, fig.height=12}
+mod1 <- lm(price ~ . - status - year, data = HP)
+
+summary(mod1)
+res <- car::residualPlots(mod1)
+res
+```
+Given the residual plots, size and lot  looks linear while it seems that bath, lot, bed, and age seem to have a non-linear form. I would probably attempt to create a sqared term for those terms to see if it boosts the adjusted $R^2$ term, which is `r `r summary(mod1)$adj.r.squared`. I would also try interaction terms with the terms that seem non-linear to see which ones are a better fit to the data.
+
+
+##Create mod2
+```{r, mod2}
+mod2 <- lm(price ~ . - status - year + bath:bed + I(age ^ 2), HP)
+summary(mod2)
+summary(mod2)$adj.r.squared
+```
+
+$$R^2 = `r summary(mod2)$adj.r.squared`$$
+
+##Create mod3
+
+```{r, mod3}
+mod3 <- update(mod2, . ~ . -elem + I(elem == "harris") + I(elem == "edison"))
+#mod3 <- lm(price )
+mod3
+summary(mod3)
+anova(mod3, mod2)
+```
+
+Yes, the p-value is `r anova(mod3, mod2)$"Pr(>F)" `
+$$R^2 = `r summary(mod3)$adj.r.squared`$$
+P - value of this F-test is saying that there is a `r anova(mod3, mod2)$"Pr(>F)" ` chance that the models fit the data equally. So we can drop the three indicators because we fail to reject the null hypothesis that they are equal to 0. 
+
+
+
+##MSE Training
+
+```{r, mseTEST}
+mean(resid(mod.fs)^2)
+mean(resid(mod.be)^2)
+mean(resid(mod2)^2)
+mean(resid(mod3)^2)
+```
+mod2 has the lowest MSE with `r mean(resid(mod2)^2)`. I can't be sure, but I do know that given what we have found with the F-Test for mod3 it might be score higher than mod3. But, we have very little data and so the F-Test may be faulty. I would stick with mod3 and see how things turned out and adjust if it turns out that it is incorrect. 
+
+
+##Mod3 Prediction Interval
+
+```{r, prediction}
+predict(mod3, newdata = data.frame(size = 1.879, lot = 4, bath = 2.1, bed = 3, garage = 2, active = 1 , age = .5, elem = 'parker'), level = .95, interval = 'predict')
+```
+
+##Extra Credit
+```{r, ec}
+library(effects)
+plot(allEffects(mod2))
+plot(effect("bath*bed", mod2))
+plot(effect("bath*bed", mod2, xlevels=list(bed=2:5)))
+plot(effect("bath*bed", mod2, xlevels=list(bath=1:3)))
+```
+
+The first set of graphs is displaying the scatter plots of the indicators. THe second set of graphs is showing the slope of mod2 when bed equals 2 thorugh 5. The third modle is showing the slope for the bath*bed term as bed is set equal to the values 1 through 3.    

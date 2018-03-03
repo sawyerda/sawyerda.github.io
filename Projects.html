@@ -187,8 +187,23 @@ $(document).ready(function () {
 <li>
   <a href="About.html">About</a>
 </li>
-<li>
-  <a href="Projects.html">Projects</a>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Projects
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="HousingPrices.html">Regressing on Housing Prices</a>
+    </li>
+    <li>
+      <a href="MachineLearning.html">Machine Learning Competition</a>
+    </li>
+    <li>
+      <a href="Genomes.html">Genomesequencing Grades</a>
+    </li>
+  </ul>
 </li>
       </ul>
     </div><!--/.nav-collapse -->
@@ -207,6 +222,12 @@ $(document).ready(function () {
 library(dplyr)</code></pre>
 <pre><code>## 
 ## Attaching package: &#39;dplyr&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:car&#39;:
+## 
+##     recode</code></pre>
+<pre><code>## The following object is masked from &#39;package:MASS&#39;:
+## 
+##     select</code></pre>
 <pre><code>## The following objects are masked from &#39;package:stats&#39;:
 ## 
 ##     filter, lag</code></pre>
